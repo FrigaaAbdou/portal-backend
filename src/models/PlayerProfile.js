@@ -16,7 +16,7 @@ const PlayerProfileSchema = new mongoose.Schema(
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
     avatarUrl: { type: String, trim: true },
     coverUrl: { type: String, trim: true },
-    jucoCoach: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+    jucoCoach: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     jucoCoachNote: { type: String, trim: true, maxlength: 2000 },
     jucoCoachNoteUpdatedAt: { type: Date },
 
@@ -54,6 +54,45 @@ const PlayerProfileSchema = new mongoose.Schema(
     // Verification (MVP)
     verificationStatus: { type: String, enum: ['none', 'requested', 'verified', 'rejected'], default: 'none' },
     verificationNote: { type: String, trim: true, maxlength: 2000 },
+
+    verification: {
+      status: {
+        type: String,
+        enum: ['none', 'email_pending', 'phone_pending', 'stats_pending', 'in_review', 'verified', 'needs_updates'],
+        default: 'none',
+      },
+      email: {
+        codeHash: { type: String },
+        expiresAt: { type: Date },
+        verifiedAt: { type: Date },
+        lastSentAt: { type: Date },
+      },
+      phone: {
+        number: { type: String, trim: true },
+        codeHash: { type: String },
+        expiresAt: { type: Date },
+        verifiedAt: { type: Date },
+        lastSentAt: { type: Date },
+      },
+      stats: {
+        snapshot: { type: Object },
+        attested: { type: Boolean, default: false },
+        supportingFiles: [{ type: String }],
+        submittedAt: { type: Date },
+        reviewerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        reviewerNote: { type: String, trim: true, maxlength: 2000 },
+        verifiedAt: { type: Date },
+      },
+      history: [
+        {
+          status: { type: String },
+          note: { type: String, trim: true },
+          actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+          createdAt: { type: Date, default: Date.now },
+        },
+      ],
+      updatedAt: { type: Date },
+    },
   },
   { timestamps: true }
 );

@@ -6,15 +6,18 @@ const mongoose = require('mongoose');
 
 dotenv.config();
 
+const { paymentsRouter, handleStripeWebhook } = require('./routes/payments');
+
 const app = express();
 
 // Middleware
-app.use(express.json());
 app.use(morgan('dev'));
 app.use(cors({
   origin: process.env.CLIENT_ORIGIN || '*',
   credentials: true,
 }));
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
+app.use(express.json());
 
 // Health route
 app.get('/api/health', (req, res) => {
@@ -37,6 +40,10 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/players', require('./routes/players'));
 app.use('/api/coaches', require('./routes/coaches'));
 app.use('/api/favorites', require('./routes/favorites'));
+app.use('/api/announcements', require('./routes/announcements'));
+app.use('/api/verification', require('./routes/verification'));
+app.use('/api/admin/verifications', require('./routes/adminVerifications'));
+app.use('/api/payments', paymentsRouter);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

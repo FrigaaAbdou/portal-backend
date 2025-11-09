@@ -7,9 +7,12 @@ const UserSchema = new mongoose.Schema(
     role: { type: String, enum: ['player', 'coach', 'admin'], required: true },
     subscriptionStatus: { type: String, enum: ['none', 'active', 'past_due', 'canceled'], default: 'none' },
     emailVerified: { type: Boolean, default: false },
+    stripeCustomerId: { type: String, index: true },
+    stripeSubscriptionId: { type: String, index: true },
+    subscriptionCurrentPeriodEnd: { type: Date },
+    subscriptionPriceId: { type: String },
   },
   { timestamps: true }
 );
 
 module.exports = mongoose.model('User', UserSchema);
-
