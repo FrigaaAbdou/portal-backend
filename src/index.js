@@ -7,6 +7,7 @@ const mongoose = require('mongoose');
 dotenv.config();
 
 const { paymentsRouter, handleStripeWebhook } = require('./routes/payments');
+const seedAdmin = require('./utils/seedAdmin');
 
 const app = express();
 
@@ -29,7 +30,10 @@ const MONGODB_URI = process.env.MONGODB_URI;
 if (MONGODB_URI) {
   mongoose
     .connect(MONGODB_URI)
-    .then(() => console.log('MongoDB connected'))
+    .then(async () => {
+      console.log('MongoDB connected');
+      await seedAdmin();
+    })
     .catch((err) => console.error('MongoDB connection error:', err.message));
 } else {
   console.log('No MONGODB_URI provided — skipping DB connection');
@@ -43,6 +47,10 @@ app.use('/api/favorites', require('./routes/favorites'));
 app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/verification', require('./routes/verification'));
 app.use('/api/admin/verifications', require('./routes/adminVerifications'));
+app.use('/api/admin/invites', require('./routes/adminInvites'));
+app.use('/api/admin/announcements', require('./routes/adminAnnouncements'));
+app.use('/api/admin/finance', require('./routes/adminFinance'));
+app.use('/api/admin/users', require('./routes/adminUsers'));
 app.use('/api/payments', paymentsRouter);
 
 const PORT = process.env.PORT || 5000;

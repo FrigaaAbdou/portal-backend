@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const Announcement = require('../models/Announcement');
 
 const router = express.Router();
 
@@ -8,9 +9,14 @@ const ANNOUNCEMENTS_PATH = path.resolve(
   '../../client/src/data/announcements.json',
 );
 
-function loadAnnouncements() {
+async function loadAnnouncements() {
   try {
-    // Node caches JSON imports, so we clear it to pick up manual edits quickly.
+    const docs = await Announcement.find({}).lean();
+    if (docs && docs.length > 0) return docs;
+  } catch (err) {
+    console.error('Unable to load announcements from DB', err);
+  }
+  try {
     delete require.cache[ANNOUNCEMENTS_PATH];
     return require(ANNOUNCEMENTS_PATH);
   } catch (err) {
@@ -19,9 +25,9 @@ function loadAnnouncements() {
   }
 }
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const includeExpired = req.query.includeExpired === 'true';
-  const announcements = loadAnnouncements();
+  const announcements = await loadAnnouncements();
   const now = Date.now();
 
   const payload = announcements

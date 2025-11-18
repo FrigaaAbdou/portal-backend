@@ -88,7 +88,7 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+
 
 async function linkPlayersToJucoCoach(coachProfile) {
   if (!coachProfile) return;
@@ -134,3 +134,5 @@ async function linkPlayersToJucoCoach(coachProfile) {
     console.error('Failed to link JUCO coach to players', err);
   }
 }
+
+module.exports = router;
