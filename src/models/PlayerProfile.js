@@ -38,6 +38,17 @@ const PlayerProfileSchema = new mongoose.Schema(
     positions: [{ type: String, trim: true }], // e.g., QB, RB, WR, ...
     highlightUrls: [{ type: String, trim: true }],
     bio: { type: String, trim: true, maxlength: 2000 },
+    classYear: {
+      type: String,
+      enum: ['freshman', 'sophomore', ''],
+      default: 'sophomore',
+    },
+    contactAccess: {
+      type: String,
+      enum: ['pending', 'authorized', 'revoked'],
+      default: 'pending',
+    },
+    contactAccessUpdatedAt: { type: Date },
 
     // Stats
     stats: { type: StatsSchema, default: () => ({}) },
@@ -103,5 +114,6 @@ PlayerProfileSchema.index({ gpaNumeric: 1 });
 PlayerProfileSchema.index({ verificationStatus: 1 });
 PlayerProfileSchema.index({ budget: 1 });
 PlayerProfileSchema.index({ jucoCoach: 1 });
+PlayerProfileSchema.index({ contactAccess: 1 });
 
 module.exports = mongoose.model('PlayerProfile', PlayerProfileSchema);

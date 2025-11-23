@@ -11,6 +11,20 @@ const router = express.Router();
 function sanitizePlayerForRole(profile, role) {
   if (!profile) return null;
   const obj = profile.toObject ? profile.toObject() : { ...profile };
+  if (!obj.classYear) {
+    obj.classYear = 'sophomore';
+  }
+  if (!obj.contactAccess) {
+    obj.contactAccess = 'pending';
+  }
+  if (obj.classYear !== 'freshman') {
+    obj.contactAccess = 'authorized';
+    if (profile.contactAccess !== 'authorized') {
+      profile.contactAccess = 'authorized';
+      profile.contactAccessUpdatedAt = new Date();
+      profile.save().catch(() => {});
+    }
+  }
   if (role === 'player') {
     delete obj.jucoCoachNote;
     delete obj.jucoCoachNoteUpdatedAt;
@@ -40,6 +54,7 @@ router.post('/', auth, async (req, res) => {
       'preferredLocation',
       'avatarUrl',
       'coverUrl',
+      'classYear',
     ];
 
     directFields.forEach((field) => {
@@ -56,6 +71,21 @@ router.post('/', auth, async (req, res) => {
       update.positions = Array.isArray(data.positions)
         ? data.positions.filter(Boolean)
         : [];
+    }
+
+    if (Object.prototype.hasOwnProperty.call(data, 'classYear')) {
+      const raw = typeof data.classYear === 'string' ? data.classYear.trim().toLowerCase() : '';
+      if (raw === 'freshman' || raw === 'sophomore') {
+        update.classYear = raw;
+      } else {
+        update.classYear = 'sophomore';
+      }
+    }
+
+    // If not a freshman, auto-authorize contact access so recruiters can reach out
+    if (update.classYear && update.classYear !== 'freshman') {
+      update.contactAccess = 'authorized';
+      update.contactAccessUpdatedAt = new Date();
     }
 
     if (Object.prototype.hasOwnProperty.call(data, 'school')) {
@@ -193,6 +223,68 @@ router.patch('/:id/juco-note', auth, requireJucoCoach, async (req, res) => {
   }
 });
 
+// Update recruiter contact authorization for a player (JUCO coach)
+router.patch('/:id/contact-authorization', auth, requireJucoCoach, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body || {};
+    if (!id) return res.status(400).json({ error: 'Player id is required' });
+
+    const player = await PlayerProfile.findById(id);
+    if (!player) return res.status(404).json({ error: 'Player not found' });
+
+    await linkJucoCoachForPlayer(player);
+
+    const coachProfile = await CoachProfile.findOne({ user: req.user.id }).select('programNameNormalized coachType');
+    if (!coachProfile || coachProfile.coachType !== 'JUCO') {
+      return res.status(403).json({ error: 'JUCO coach profile required' });
+    }
+
+    const playerSchool = player.schoolNormalized || (player.school ? normalizeInstitutionName(player.school) : '');
+    const coachProgram = coachProfile.programNameNormalized || '';
+
+    if (!coachProgram) {
+      return res.status(400).json({ error: 'Coach program name is required to manage contact access' });
+    }
+
+    if (!playerSchool) {
+      return res.status(400).json({ error: 'Player must have a school on file before managing contact access' });
+    }
+
+    if (playerSchool !== coachProgram) {
+      return res.status(403).json({ error: 'Player does not belong to your program' });
+    }
+
+    if (player.jucoCoach && player.jucoCoach.toString() !== req.user.id) {
+      return res.status(403).json({ error: 'Another coach manages this player' });
+    }
+
+    if (player.classYear && player.classYear !== 'freshman') {
+      return res.status(400).json({ error: 'Contact authorization is only required for freshmen' });
+    }
+
+    const allowed = ['pending', 'authorized', 'revoked'];
+    const nextStatus = typeof status === 'string' ? status.trim().toLowerCase() : '';
+    if (!allowed.includes(nextStatus)) {
+      return res.status(400).json({ error: 'Invalid contact access status' });
+    }
+
+    player.jucoCoach = req.user.id;
+    player.contactAccess = nextStatus;
+    player.contactAccessUpdatedAt = new Date();
+    await player.save();
+
+    return res.json({
+      success: true,
+      status: player.contactAccess,
+      updatedAt: player.contactAccessUpdatedAt,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to update contact access' });
+  }
+});
+
 // Get players assigned to the current JUCO coach
 router.get('/juco/my-players', auth, requireJucoCoach, async (req, res) => {
   try {
@@ -204,7 +296,7 @@ router.get('/juco/my-players', auth, requireJucoCoach, async (req, res) => {
     const [players, total] = await Promise.all([
       PlayerProfile.find({ jucoCoach: req.user.id })
         .select(
-          'fullName avatarUrl coverUrl city state country gpa gpaNumeric school schoolNormalized positions stats budget division preferredLocation verificationStatus updatedAt jucoCoachNote jucoCoachNoteUpdatedAt'
+          'fullName avatarUrl coverUrl city state country gpa gpaNumeric school schoolNormalized positions stats budget division preferredLocation verificationStatus updatedAt jucoCoachNote jucoCoachNoteUpdatedAt classYear contactAccess contactAccessUpdatedAt'
         )
         .sort({ updatedAt: -1 })
         .skip(skip)
@@ -236,6 +328,7 @@ router.get('/', auth, requireRecruiter, async (req, res) => {
       positions,
       division,
       location,
+      classYear,
       verificationStatus,
       gpaMin,
       gpaMax,
@@ -271,6 +364,13 @@ router.get('/', auth, requireRecruiter, async (req, res) => {
 
     if (location) {
       filter.preferredLocation = location;
+    }
+
+    if (classYear && typeof classYear === 'string') {
+      const normalizedClass = classYear.trim().toLowerCase();
+      if (normalizedClass === 'freshman' || normalizedClass === 'sophomore') {
+        filter.classYear = normalizedClass;
+      }
     }
 
     const verificationList = parseList(verificationStatus);
@@ -313,7 +413,7 @@ router.get('/', auth, requireRecruiter, async (req, res) => {
 
     const [players, total] = await Promise.all([
       PlayerProfile.find(filter)
-        .select('fullName avatarUrl coverUrl city state country gpa gpaNumeric school schoolNormalized positions stats budget division preferredLocation verificationStatus updatedAt jucoCoach jucoCoachNote jucoCoachNoteUpdatedAt')
+        .select('fullName avatarUrl coverUrl city state country gpa gpaNumeric school schoolNormalized positions stats budget division preferredLocation verificationStatus updatedAt jucoCoach jucoCoachNote jucoCoachNoteUpdatedAt classYear contactAccess')
         .sort({ updatedAt: -1 })
         .skip(skip)
         .limit(safeLimit),
@@ -345,7 +445,7 @@ router.get('/:id', auth, requireRecruiter, async (req, res) => {
 
     const profile = await PlayerProfile.findById(id)
       .select(
-        'user avatarUrl coverUrl fullName dob city state country heightFeet heightInches weightLbs school schoolNormalized gpa gpaNumeric positions highlightUrls bio stats division budget preferredLocation verificationStatus verificationNote createdAt updatedAt jucoCoach jucoCoachNote jucoCoachNoteUpdatedAt'
+        'user avatarUrl coverUrl fullName dob city state country heightFeet heightInches weightLbs school schoolNormalized gpa gpaNumeric positions highlightUrls bio stats division budget preferredLocation verificationStatus verificationNote createdAt updatedAt jucoCoach jucoCoachNote jucoCoachNoteUpdatedAt classYear contactAccess contactAccessUpdatedAt'
       )
       .populate('user', 'email role');
 
@@ -353,7 +453,14 @@ router.get('/:id', auth, requireRecruiter, async (req, res) => {
       return res.status(404).json({ error: 'Player not found' });
     }
 
-    res.json({ data: profile });
+    const contactAllowed = (profile.classYear && profile.classYear !== 'freshman') || profile.contactAccess === 'authorized';
+    const payload = profile.toObject ? profile.toObject() : { ...profile };
+    if (!contactAllowed && payload.user) {
+      payload.user = { id: payload.user._id || payload.user.id, role: payload.user.role };
+    }
+    payload.contactAllowed = contactAllowed;
+
+    res.json({ data: payload });
   } catch (err) {
     console.error(err);
     if (err.name === 'CastError') {
