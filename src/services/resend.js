@@ -1,7 +1,7 @@
 const { Resend } = require('resend');
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Portal <no-reply@portal.app>';
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Sportall <no-reply@sportall.io>';
 
 if (!RESEND_API_KEY) {
   console.warn('RESEND_API_KEY is not configured. Email verification will not work.');
