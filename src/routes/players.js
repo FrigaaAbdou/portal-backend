@@ -445,7 +445,7 @@ router.get('/:id', auth, requireRecruiter, async (req, res) => {
 
     const profile = await PlayerProfile.findById(id)
       .select(
-        'user avatarUrl coverUrl fullName dob city state country heightFeet heightInches weightLbs school schoolNormalized gpa gpaNumeric positions highlightUrls bio stats division budget preferredLocation verificationStatus verificationNote createdAt updatedAt jucoCoach jucoCoachNote jucoCoachNoteUpdatedAt classYear contactAccess contactAccessUpdatedAt'
+        'user avatarUrl coverUrl fullName dob city state country heightFeet heightInches weightLbs school schoolNormalized gpa gpaNumeric positions highlightUrls bio stats division budget preferredLocation verificationStatus verificationNote createdAt updatedAt jucoCoach jucoCoachNote jucoCoachNoteUpdatedAt classYear contactAccess contactAccessUpdatedAt phoneVerifiedAt'
       )
       .populate('user', 'email role');
 

@@ -26,7 +26,7 @@ async function sendEmail({ to, subject, html }) {
 async function sendVerificationCode(to, code) {
   await sendEmail({
     to,
-    subject: 'Your Portal verification code',
+    subject: 'Your Sportall verification code',
     html: `<p>Your verification code is <strong>${code}</strong>. It expires in 10 minutes.</p>`,
   })
 }

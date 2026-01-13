@@ -65,6 +65,7 @@ const PlayerProfileSchema = new mongoose.Schema(
     // Verification (MVP)
     verificationStatus: { type: String, enum: ['none', 'requested', 'verified', 'rejected'], default: 'none' },
     verificationNote: { type: String, trim: true, maxlength: 2000 },
+    phoneVerifiedAt: { type: Date },
 
     verification: {
       status: {

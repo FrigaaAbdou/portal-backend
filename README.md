@@ -1,4 +1,4 @@
-# portal-backend
+# sportall-backend
 
 ## Environment variables
 
@@ -6,8 +6,14 @@ Create a `.env` file (see `server/.env`) with the following keys:
 
 ```
 PORT=5001
-MONGODB_URI=mongodb://127.0.0.1:27017/Portal
+MONGODB_URI=mongodb://127.0.0.1:27017/Sportall
 JWT_SECRET=your_jwt_secret
+PASSWORD_MIN_LENGTH=8
+PASSWORD_RESET_OTP_TTL_MINUTES=10
+PASSWORD_RESET_OTP_MAX_ATTEMPTS=5
+PASSWORD_RESET_REQUEST_WINDOW_MINUTES=5
+PASSWORD_RESET_REQUEST_MAX=2
+PASSWORD_RESET_TOKEN_TTL_MINUTES=5
 CLIENT_ORIGIN=http://localhost:5171
 RESEND_API_KEY=your_resend_key
 TWILIO_ACCOUNT_SID=your_twilio_sid
@@ -17,6 +23,14 @@ VERIFICATION_ALERT_EMAIL=ops@example.com # optional reminder summary recipient
 ```
 
 `RESEND_API_KEY` powers email verification codes, while the Twilio variables power SMS verification through Twilio Verify.
+
+## Password reset API
+
+Endpoints under `/api/auth`:
+
+- `POST /api/auth/reset/request` → send a 6-digit reset code (returns generic success).
+- `POST /api/auth/reset/verify` → verify the code and receive a short-lived reset token.
+- `POST /api/auth/reset/confirm` → set a new password using the reset token.
 
 ## Verification API
 

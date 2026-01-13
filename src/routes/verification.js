@@ -78,13 +78,13 @@ router.post('/email/confirm', auth, async (req, res) => {
       expiresAt: undefined,
       verifiedAt: new Date(),
     };
-    profile.verification.status = 'phone_pending';
+    profile.verification.status = 'stats_pending';
     profile.verification.updatedAt = new Date();
     await profile.save();
 
-    notifyUser(req.user.id, 'Email verified', 'Your email address has been verified. Next, confirm your phone number.').catch(() => {})
+    notifyUser(req.user.id, 'Email verified', 'Your email address has been verified. Next, submit your stats to continue.').catch(() => {})
 
-    return res.json({ success: true, next: 'phone_pending' });
+    return res.json({ success: true, next: profile.verification?.status || null });
   } catch (err) {
     console.error('Email verification confirm failed', err);
     const status = err?.code ? 400 : 500;
@@ -113,7 +113,6 @@ router.post('/phone/send', auth, async (req, res) => {
     const verificationSid = await twilioVerify.sendCode(phone);
 
     profile.verification = profile.verification || {};
-    profile.verification.status = 'phone_pending';
     profile.verification.phone = {
       number: phone,
       serviceSid: verificationSid,
@@ -151,11 +150,15 @@ router.post('/phone/confirm', auth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired code' });
     }
 
+    const verifiedAt = new Date();
     profile.verification.phone = {
       ...profile.verification.phone,
-      verifiedAt: new Date(),
+      verifiedAt,
     };
-    profile.verification.status = 'stats_pending';
+    profile.phoneVerifiedAt = verifiedAt;
+    if (profile.verification.status === 'phone_pending') {
+      profile.verification.status = 'stats_pending';
+    }
     profile.verification.updatedAt = new Date();
     await profile.save();
 
@@ -185,7 +188,8 @@ router.post('/stats', auth, async (req, res) => {
 
     const profile = await getPlayerProfile(req.user.id);
     if (!profile) return res.status(404).json({ error: 'Profile not found' });
-    if (profile.verification?.status !== 'stats_pending' && profile.verification?.status !== 'needs_updates') {
+    const allowedStatuses = new Set(['stats_pending', 'needs_updates', 'phone_pending']);
+    if (!allowedStatuses.has(profile.verification?.status)) {
       return res.status(400).json({ error: 'Stats cannot be submitted at this stage' });
     }
 
@@ -219,10 +223,11 @@ router.post('/stats', auth, async (req, res) => {
 
 router.get('/me', auth, async (req, res) => {
   try {
-    const profile = await getPlayerProfile(req.user.id).select('verification verificationStatus verificationNote');
+    const profile = await getPlayerProfile(req.user.id).select('verification verificationStatus verificationNote phoneVerifiedAt');
     if (!profile) return res.status(404).json({ error: 'Profile not found' });
     return res.json({
       verification: profile.verification || null,
+      phoneVerifiedAt: profile.phoneVerifiedAt || profile?.verification?.phone?.verifiedAt || null,
       legacyStatus: profile.verificationStatus,
       legacyNote: profile.verificationNote,
     });

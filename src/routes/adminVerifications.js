@@ -29,7 +29,7 @@ router.get('/', async (req, res) => {
 
     const [items, total] = await Promise.all([
       PlayerProfile.find(filter)
-        .select('fullName school division jucoCoach verification status updatedAt verification.status')
+        .select('fullName school division jucoCoach verification status updatedAt verification.status verification.phone.verifiedAt phoneVerifiedAt')
         .skip(skip)
         .limit(safeLimit)
         .sort({ 'verification.updatedAt': -1 }),
@@ -91,7 +91,7 @@ router.post('/:id/approve', async (req, res) => {
       details: { reviewerNote: req.body.note || '' },
     });
 
-    notifyUser(profile.user, 'Profile verified', 'Congratulations! Your Portal profile has been verified by our team.').catch(() => {})
+    notifyUser(profile.user, 'Profile verified', 'Congratulations! Your Sportall profile has been verified by our team.').catch(() => {})
 
     res.json({ success: true });
   } catch (err) {
